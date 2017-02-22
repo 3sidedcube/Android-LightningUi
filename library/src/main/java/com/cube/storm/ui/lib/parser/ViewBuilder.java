@@ -49,7 +49,7 @@ public abstract class ViewBuilder
 	 *
 	 * @return The gson object
 	 */
-	private Gson getGson()
+	public Gson getGson()
 	{
 		if (viewBuilder == null)
 		{
