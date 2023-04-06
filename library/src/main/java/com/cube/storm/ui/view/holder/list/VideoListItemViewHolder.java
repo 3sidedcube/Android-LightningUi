@@ -81,57 +81,66 @@ public class VideoListItemViewHolder extends ViewHolder<VideoListItem>
 		{
 			@Override public void onClick(View v)
 			{
-				try
-				{
-					List<VideoProperty> videoList = new ArrayList<>(model.getVideos());
-
-					if (videoList.isEmpty())
-					{
-						Toast.makeText(itemView.getContext(), "Video is not available", Toast.LENGTH_LONG).show();
-						return;
-					}
-
-					String defaultLanguageUri = UiSettings.getInstance().getDefaultLanguageUri();
-					VideoProperty videoToShow = videoList.get(0);
-					if (defaultLanguageUri != null)
-					{
-						// TODO: Some of this locale logic is duplicated with the language library - move to utils
-						for (VideoProperty videoProperty : model.getVideos())
-						{
-							if (defaultLanguageUri.contains(videoProperty.getLocale()))
-							{
-								videoToShow = videoProperty;
-								break;
-							}
-						}
-					}
-
-					for (EventHook eventHook : UiSettings.getInstance().getEventHooks())
-					{
-						eventHook.onViewLinkedClicked(itemView, model, videoToShow.getSrc());
-					}
-
-					VideoPageDescriptor pageDescriptor = new VideoPageDescriptor();
-					pageDescriptor.setType("content");
-					pageDescriptor.setSrc(videoToShow.getSrc().getDestination());
-
-					Intent video = UiSettings.getInstance().getIntentFactory().getIntentForPageDescriptor(v.getContext(), pageDescriptor);
-
-					if (video != null)
-					{
-						if (video.getComponent() != null && video.getComponent().getClassName().equals(VideoPlayerActivity.class.getName()))
-						{
-							video.putExtra(VideoPlayerActivity.EXTRA_VIDEO, videoToShow);
-						}
-						v.getContext().startActivity(video);
-					}
-				}
-				catch (Exception e)
-				{
-					Log.e(getClass().getName(), "Error: " + e.getMessage());
-					Toast.makeText(itemView.getContext(), "Could not load video", Toast.LENGTH_LONG).show();
-				}
+				onItemClick(v);
 			}
 		});
+	}
+	
+	/**
+	 * Method to call when the view is clicked
+	 * @param view The clicked view
+	 */
+	protected void onItemClick(View view)
+	{
+		try
+		{
+			List<VideoProperty> videoList = new ArrayList<>(model.getVideos());
+			
+			if (videoList.isEmpty())
+			{
+				Toast.makeText(itemView.getContext(), "Video is not available", Toast.LENGTH_LONG).show();
+				return;
+			}
+			
+			String defaultLanguageUri = UiSettings.getInstance().getDefaultLanguageUri();
+			VideoProperty videoToShow = videoList.get(0);
+			if (defaultLanguageUri != null)
+			{
+				// TODO: Some of this locale logic is duplicated with the language library - move to utils
+				for (VideoProperty videoProperty : model.getVideos())
+				{
+					if (defaultLanguageUri.contains(videoProperty.getLocale()))
+					{
+						videoToShow = videoProperty;
+						break;
+					}
+				}
+			}
+			
+			for (EventHook eventHook : UiSettings.getInstance().getEventHooks())
+			{
+				eventHook.onViewLinkedClicked(itemView, model, videoToShow.getSrc());
+			}
+			
+			VideoPageDescriptor pageDescriptor = new VideoPageDescriptor();
+			pageDescriptor.setType("content");
+			pageDescriptor.setSrc(videoToShow.getSrc().getDestination());
+			
+			Intent video = UiSettings.getInstance().getIntentFactory().getIntentForPageDescriptor(view.getContext(), pageDescriptor);
+			
+			if (video != null)
+			{
+				if (video.getComponent() != null && video.getComponent().getClassName().equals(VideoPlayerActivity.class.getName()))
+				{
+					video.putExtra(VideoPlayerActivity.EXTRA_VIDEO, videoToShow);
+				}
+				view.getContext().startActivity(video);
+			}
+		}
+		catch (Exception e)
+		{
+			Log.e(getClass().getName(), "Error: " + e.getMessage());
+			Toast.makeText(itemView.getContext(), "Could not load video", Toast.LENGTH_LONG).show();
+		}
 	}
 }
