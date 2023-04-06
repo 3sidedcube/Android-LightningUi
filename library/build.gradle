@@ -24,14 +24,14 @@ dependencies {
     implementation files('lib/YouTubeAndroidPlayerApi.jar')
 
 	// androidx libs
-	implementation 'androidx.annotation:annotation:1.3.0'
-	implementation 'androidx.appcompat:appcompat:1.4.0'
+	implementation 'androidx.annotation:annotation:1.4.0'
+	implementation 'androidx.appcompat:appcompat:1.5.1'
 	implementation 'androidx.browser:browser:1.4.0'
 	implementation 'androidx.cardview:cardview:1.0.0'
 	implementation 'androidx.legacy:legacy-support-v13:1.0.0'
 	implementation 'androidx.recyclerview:recyclerview:1.2.1'
 
-	implementation 'com.google.android.material:material:1.4.0'
+	implementation 'com.google.android.material:material:1.6.1'
 
 	api 'com.github.aurelhubert:ahbottomnavigation:2.3.4'
 
@@ -39,9 +39,9 @@ dependencies {
 	implementation 'com.github.HaarigerHarald:android-youtubeExtractor:v1.7.0'
 	implementation 'com.google.guava:guava:31.1-android'
 
-	implementation 'com.google.code.gson:gson:2.8.6'
+	implementation 'com.google.code.gson:gson:2.9.0'
 
-	implementation 'com.3sidedcube.storm:util:1.2.0'
+	implementation 'com.3sidedcube.storm:util:1.3.0'
 
 	api 'com.3sidedcube.util:universal-image-loader:2.1.2'
 
