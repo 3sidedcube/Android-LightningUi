@@ -98,7 +98,7 @@ public class VideoListItemViewHolder extends ViewHolder<VideoListItem>
 			
 			if (videoList.isEmpty())
 			{
-				Toast.makeText(itemView.getContext(), "Video is not available", Toast.LENGTH_LONG).show();
+				onVideoNotAvailable();
 				return;
 			}
 			
@@ -140,7 +140,23 @@ public class VideoListItemViewHolder extends ViewHolder<VideoListItem>
 		catch (Exception e)
 		{
 			Log.e(getClass().getName(), "Error: " + e.getMessage());
-			Toast.makeText(itemView.getContext(), "Could not load video", Toast.LENGTH_LONG).show();
+			onVideoLoadFailed(e);
 		}
+	}
+	
+	/**
+	 * Displays to the user that a video is not available
+	 */
+	protected void onVideoNotAvailable()
+	{
+		Toast.makeText(itemView.getContext(), "Video is not available", Toast.LENGTH_LONG).show();
+	}
+	
+	/**
+	 * Displays to the user that a video could not be loaded
+	 */
+	protected void onVideoLoadFailed(@SuppressWarnings("unused") Exception e)
+	{
+		Toast.makeText(itemView.getContext(), "Could not load video", Toast.LENGTH_LONG).show();
 	}
 }
