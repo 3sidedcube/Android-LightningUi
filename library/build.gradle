@@ -45,8 +45,8 @@ dependencies {
 
 	api 'com.3sidedcube.util:universal-image-loader:2.1.2'
 
-	compileOnly 'org.projectlombok:lombok:1.18.16'
-	annotationProcessor 'org.projectlombok:lombok:1.18.16'
+	compileOnly 'org.projectlombok:lombok:1.18.22'
+	annotationProcessor 'org.projectlombok:lombok:1.18.22'
 }
 
 apply from: '../gradle/artifactory.gradle'
