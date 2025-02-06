@@ -19,6 +19,13 @@ android {
 		abortOnError false
 	}
 	namespace 'com.cube.storm.ui'
+
+	publishing {
+		singleVariant("release") {
+			withSourcesJar()
+			withJavadocJar()
+		}
+	}
 }
 
 dependencies {
