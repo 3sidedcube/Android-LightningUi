@@ -1,7 +1,5 @@
 <manifest
-	xmlns:android="http://schemas.android.com/apk/res/android"
-	package="com.cube.storm.ui.example"
->
+	xmlns:android="http://schemas.android.com/apk/res/android">
 	<application
 		android:allowBackup="true"
 		android:name=".MainApplication"

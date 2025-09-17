@@ -3,6 +3,8 @@ package com.cube.storm.ui.activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+
+import androidx.activity.EdgeToEdge;
 import androidx.fragment.app.Fragment;
 import androidx.core.app.NavUtils;
 import androidx.core.app.TaskStackBuilder;
@@ -13,6 +15,7 @@ import android.widget.Toast;
 import com.cube.storm.UiSettings;
 import com.cube.storm.ui.R;
 import com.cube.storm.ui.data.FragmentIntent;
+import com.cube.storm.ui.lib.EdgeToEdgeUtils;
 
 /**
  * Base storm activity that hosts a single fragment to host any {@link com.cube.storm.ui.model.page.Page} subclass.
@@ -24,11 +27,18 @@ public class StormActivity extends AppCompatActivity implements StormInterface
 {
 	public static final String EXTRA_URI = "stormui.uri";
 
+	protected void configureEdgeToEdge()
+	{
+		EdgeToEdgeUtils.addAllPaddings(findViewById(R.id.fragment_holder));
+	}
 
 	@Override public void onCreate(Bundle savedInstanceState)
 	{
+		EdgeToEdge.enable(this);
 		super.onCreate(savedInstanceState);
 		setContentView(getLayoutResource());
+
+		configureEdgeToEdge();
 
 		if (getSupportActionBar() != null)
 		{

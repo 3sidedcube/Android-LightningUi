@@ -12,10 +12,13 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.cube.storm.UiSettings;
 import com.cube.storm.ui.R;
+import com.cube.storm.ui.lib.EdgeToEdgeUtils;
 import com.cube.storm.ui.lib.handler.LinkHandler;
 import com.cube.storm.ui.model.property.VideoProperty;
 import com.cube.storm.util.lib.resolver.Resolver;
@@ -87,9 +90,12 @@ public class VideoPlayerActivity extends AppCompatActivity implements PlaybackPr
 	@Override
 	public void onCreate(Bundle savedInstanceState)
 	{
+		EdgeToEdge.enable(this);
 		super.onCreate(savedInstanceState);
 		dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, "storm-video-player"));
 		setContentView(R.layout.activity_video_player);
+
+		EdgeToEdgeUtils.addAllPaddings(findViewById(R.id.root));
 
 		closedCaptionsButton = findViewById(R.id.cc_button);
 		closeVideoButton = findViewById(R.id.close_button);
