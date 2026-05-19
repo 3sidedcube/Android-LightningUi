@@ -1,18 +1,20 @@
 package com.cube.storm.ui.lib.helper;
 
 import android.graphics.Bitmap;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.view.View;
 import android.widget.ImageView;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.cube.storm.UiSettings;
 import com.cube.storm.ui.data.ContentSize;
+import com.cube.storm.ui.lib.listener.ImageLoadingListener;
 import com.cube.storm.ui.model.property.ImageProperty;
-import com.nostra13.universalimageloader.core.assist.FailReason;
-import com.nostra13.universalimageloader.core.imageaware.ImageViewAware;
-import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
-import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -28,13 +30,8 @@ public class ImageHelper
 {
 	public static void displayImage(@NonNull final ImageView image, @Nullable List<ImageProperty> images)
 	{
-		displayImage(image, images, new SimpleImageLoadingListener()
+		displayImage(image, images, new ImageLoadingListener()
 		{
-			@Override public void onLoadingStarted(String imageUri, View view)
-			{
-				super.onLoadingStarted(imageUri, view);
-			}
-
 			@Override public void onLoadingComplete(String imageUri, View view, Bitmap loadedImage)
 			{
 				if (loadedImage != null)
@@ -42,23 +39,55 @@ public class ImageHelper
 					image.setVisibility(View.VISIBLE);
 				}
 			}
-
-			@Override public void onLoadingFailed(String imageUri, View view, FailReason failReason)
-			{
-
-			}
 		});
 	}
 
-	public static void displayImage(@NonNull ImageView image, @Nullable List<ImageProperty> images, ImageLoadingListener listener)
+	public static void displayImage(@NonNull final ImageView image, @Nullable List<ImageProperty> images, @Nullable final ImageLoadingListener listener)
 	{
-		if (images != null)
+		if (images == null)
 		{
-			ImageViewAware aware = new ImageViewAware(image, true);
-
-			String src = ImageHelper.getImageSrc(images, aware.getWidth(), aware.getHeight());
-			UiSettings.getInstance().getImageLoader().displayImage(src, image, listener);
+			return;
 		}
+
+		int width = image.getWidth();
+		int height = image.getHeight();
+		final String src = ImageHelper.getImageSrc(images, width, height);
+
+		if (src == null)
+		{
+			if (listener != null)
+			{
+				listener.onLoadingFailed(null, image, null);
+			}
+			return;
+		}
+
+		Glide.with(image.getContext())
+			.asBitmap()
+			.load(src)
+			.listener(new RequestListener<Bitmap>()
+			{
+				@Override
+				public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Bitmap> target, boolean isFirstResource)
+				{
+					if (listener != null)
+					{
+						listener.onLoadingFailed(src, image, e);
+					}
+					return false;
+				}
+
+				@Override
+				public boolean onResourceReady(Bitmap resource, Object model, Target<Bitmap> target, DataSource dataSource, boolean isFirstResource)
+				{
+					if (listener != null)
+					{
+						listener.onLoadingComplete(src, image, resource);
+					}
+					return false;
+				}
+			})
+			.into(image);
 	}
 
 	@Nullable

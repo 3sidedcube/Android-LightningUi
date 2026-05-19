@@ -3,30 +3,30 @@ package com.cube.storm.ui.view;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Handler;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.widget.ProgressBar;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.bumptech.glide.Glide;
 import com.cube.storm.UiSettings;
 import com.cube.storm.ui.data.ContentSize;
 import com.cube.storm.ui.lib.helper.ImageHelper;
+import com.cube.storm.ui.lib.listener.ImageLoadingListener;
 import com.cube.storm.ui.model.property.AnimationFrame;
 import com.cube.storm.ui.model.property.AnimationImageProperty;
 import com.cube.storm.ui.model.property.ImageProperty;
 import com.cube.storm.ui.model.property.SpotlightImageProperty;
 import com.cube.storm.ui.model.property.TextProperty;
-import com.nostra13.universalimageloader.core.assist.FailReason;
-import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
-import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Augmented image view which uses the UniveralImageLoader library to display images and handles Storm animations.
+ * Augmented image view which uses Glide to display images and handles Storm animations.
  * <p/>
  *
  * @author Tim Matthews
@@ -318,7 +318,7 @@ public class ImageView extends androidx.appcompat.widget.AppCompatImageView
 		@Nullable final ImageLoadingListener listener
 	)
 	{
-		UiSettings.getInstance().getImageLoader().cancelDisplayTask(this);
+		Glide.with(this).clear(this);
 
 		if (image != null && image.size() > 0)
 		{
@@ -343,31 +343,28 @@ public class ImageView extends androidx.appcompat.widget.AppCompatImageView
 				setFocusable(false);
 			}
 
-			ImageHelper.displayImage(this, image, new SimpleImageLoadingListener()
+			if (listener != null)
 			{
-				@Override public void onLoadingStarted(String imageUri, View view)
+				listener.onLoadingStarted(null, this);
+			}
+
+			if (animator == null)
+			{
+				setVisibility(View.INVISIBLE);
+			}
+
+			if (progress != null)
+			{
+				progress.setVisibility(View.VISIBLE);
+			}
+
+			ImageHelper.displayImage(this, image, new ImageLoadingListener()
+			{
+				@Override public void onLoadingFailed(String imageUri, View view, @Nullable Exception e)
 				{
 					if (listener != null)
 					{
-						listener.onLoadingStarted(imageUri, view);
-					}
-
-					if (animator == null)
-					{
-						setVisibility(View.INVISIBLE);
-					}
-
-					if (progress != null)
-					{
-						progress.setVisibility(View.VISIBLE);
-					}
-				}
-
-				@Override public void onLoadingFailed(String imageUri, View view, FailReason failReason)
-				{
-					if (listener != null)
-					{
-						listener.onLoadingFailed(imageUri, view, failReason);
+						listener.onLoadingFailed(imageUri, view, e);
 					}
 
 					setVisibility(View.GONE);
