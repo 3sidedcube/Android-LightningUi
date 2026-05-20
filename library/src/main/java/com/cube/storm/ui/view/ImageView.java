@@ -1,7 +1,7 @@
 package com.cube.storm.ui.view;
 
 import android.content.Context;
-import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -10,6 +10,12 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.widget.ProgressBar;
+
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.cube.storm.UiSettings;
 import com.cube.storm.ui.data.ContentSize;
 import com.cube.storm.ui.lib.helper.ImageHelper;
@@ -18,15 +24,12 @@ import com.cube.storm.ui.model.property.AnimationImageProperty;
 import com.cube.storm.ui.model.property.ImageProperty;
 import com.cube.storm.ui.model.property.SpotlightImageProperty;
 import com.cube.storm.ui.model.property.TextProperty;
-import com.nostra13.universalimageloader.core.assist.FailReason;
-import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
-import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Augmented image view which uses the UniveralImageLoader library to display images and handles Storm animations.
+ * Augmented image view which uses the Glide library to display images and handles Storm animations.
  * <p/>
  *
  * @author Tim Matthews
@@ -270,7 +273,7 @@ public class ImageView extends androidx.appcompat.widget.AppCompatImageView
 	 * @param listener
 	 *      If provided then the listener will receive callbacks at each stage of the image frame being loaded
 	 */
-	public void populate(@Nullable final ArrayList<ImageProperty> image, @Nullable final TextProperty accessibilityLabel, @Nullable final ProgressBar progress, @Nullable final ImageLoadingListener listener)
+	public void populate(@Nullable final ArrayList<ImageProperty> image, @Nullable final TextProperty accessibilityLabel, @Nullable final ProgressBar progress, @Nullable final RequestListener<Drawable> listener)
 	{
 		// If image size isnt calculated yet, wait till it has
 		if (getWidth() == 0 && getHeight() == 0 && image != null && getVisibility() != GONE && UiSettings.getInstance().getContentSize() == ContentSize.AUTO)
@@ -313,25 +316,22 @@ public class ImageView extends androidx.appcompat.widget.AppCompatImageView
 	 */
 	private void populateFrame(
 		@Nullable final ArrayList<ImageProperty> image,
-		@Nullable TextProperty accessibilityLabel,
+		@Nullable final TextProperty accessibilityLabel,
 		@Nullable final ProgressBar progress,
-		@Nullable final ImageLoadingListener listener
+		@Nullable final RequestListener<Drawable> listener
 	)
 	{
-		UiSettings.getInstance().getImageLoader().cancelDisplayTask(this);
+		Glide.with(getContext()).clear(this);
 
-		if (image != null && image.size() > 0)
+		if (image != null && !image.isEmpty())
 		{
-			if (accessibilityLabel == null)
-			{
-				// no explicit accessibility label provided. See if the images themselves have one...
-				// we will choose an image to take the label from arbitrarily
-				// all the images have the same label anyway for all Storm apps using the LegacyImageViewProcessor
-				accessibilityLabel = image.get(0).getAccessibilityLabel();
-			}
+			// no explicit accessibility label provided. See if the images themselves have one...
+			// we will choose an image to take the label from arbitrarily
+			// all the images have the same label anyway for all Storm apps using the LegacyImageViewProcessor
+			final TextProperty label = (accessibilityLabel != null) ? accessibilityLabel : image.get(0).getAccessibilityLabel();
 
 			// Set accessibility label (content description) on images
-			String accessibilityLabelText = UiSettings.getInstance().getTextProcessor().process(accessibilityLabel);
+			String accessibilityLabelText = UiSettings.getInstance().getTextProcessor().process(label);
 			if (!TextUtils.isEmpty(accessibilityLabelText))
 			{
 				setContentDescription(accessibilityLabelText);
@@ -343,31 +343,23 @@ public class ImageView extends androidx.appcompat.widget.AppCompatImageView
 				setFocusable(false);
 			}
 
-			ImageHelper.displayImage(this, image, new SimpleImageLoadingListener()
+			if (animator == null)
 			{
-				@Override public void onLoadingStarted(String imageUri, View view)
+				setVisibility(View.INVISIBLE);
+			}
+
+			if (progress != null)
+			{
+				progress.setVisibility(View.VISIBLE);
+			}
+
+			ImageHelper.displayImage(this, image, new RequestListener<Drawable>()
+			{
+				@Override public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource)
 				{
 					if (listener != null)
 					{
-						listener.onLoadingStarted(imageUri, view);
-					}
-
-					if (animator == null)
-					{
-						setVisibility(View.INVISIBLE);
-					}
-
-					if (progress != null)
-					{
-						progress.setVisibility(View.VISIBLE);
-					}
-				}
-
-				@Override public void onLoadingFailed(String imageUri, View view, FailReason failReason)
-				{
-					if (listener != null)
-					{
-						listener.onLoadingFailed(imageUri, view, failReason);
+						listener.onLoadFailed(e, model, target, isFirstResource);
 					}
 
 					setVisibility(View.GONE);
@@ -375,13 +367,14 @@ public class ImageView extends androidx.appcompat.widget.AppCompatImageView
 					{
 						progress.setVisibility(View.GONE);
 					}
+					return false;
 				}
 
-				@Override public void onLoadingComplete(String imageUri, View view, Bitmap loadedImage)
+				@Override public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource)
 				{
 					if (listener != null)
 					{
-						listener.onLoadingComplete(imageUri, view, loadedImage);
+						listener.onResourceReady(resource, model, target, dataSource, isFirstResource);
 					}
 
 					setVisibility(View.VISIBLE);
@@ -389,6 +382,7 @@ public class ImageView extends androidx.appcompat.widget.AppCompatImageView
 					{
 						progress.setVisibility(View.GONE);
 					}
+					return false;
 				}
 			});
 		}

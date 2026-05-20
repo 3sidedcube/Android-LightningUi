@@ -16,21 +16,25 @@ import android.view.ViewGroup;
 import com.aurelhubert.ahbottomnavigation.AHBottomNavigation;
 import com.aurelhubert.ahbottomnavigation.AHBottomNavigationItem;
 import com.aurelhubert.ahbottomnavigation.AHBottomNavigationViewPager;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import com.cube.storm.UiSettings;
 import com.cube.storm.ui.R;
 import com.cube.storm.ui.lib.helper.ImageHelper;
 import com.cube.storm.ui.model.descriptor.PageDescriptor;
 import com.cube.storm.ui.model.descriptor.TabbedPageDescriptor;
 import com.cube.storm.ui.model.page.TabbedPageCollection;
-import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
+import android.graphics.drawable.Drawable;
 import lombok.Getter;
 
 /**
@@ -107,16 +111,22 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 
 		if (iconSrc != null)
 		{
-			UiSettings.getInstance().getImageLoader().loadImage(iconSrc, new SimpleImageLoadingListener()
-			{
-				@Override
-				public void onLoadingComplete(String imageUri, View view, Bitmap loadedImage)
-				{
-					super.onLoadingComplete(imageUri, view, loadedImage);
-					navItem.setDrawable(new BitmapDrawable(resources, loadedImage));
-					bottomNavigation.refresh();
-				}
-			});
+			String resolvedSrc = ImageHelper.resolveUri(iconSrc);
+			Glide.with(this)
+			     .asBitmap()
+			     .load(resolvedSrc)
+			     .into(new CustomTarget<Bitmap>()
+			     {
+				     @Override public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition)
+				     {
+					     navItem.setDrawable(new BitmapDrawable(resources, resource));
+					     bottomNavigation.refresh();
+				     }
+
+				     @Override public void onLoadCleared(@Nullable Drawable placeholder)
+				     {
+				     }
+			     });
 		}
 	}
 
