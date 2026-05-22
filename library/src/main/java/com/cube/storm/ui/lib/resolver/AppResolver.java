@@ -43,7 +43,7 @@ public class AppResolver extends Resolver
 
 			if (res > 0)
 			{
-				return Uri.parse("drawable://" + res);
+				return Uri.parse("android.resource://" + applicationContext.getPackageName() + "/" + res);
 			}
 		}
 
@@ -57,13 +57,18 @@ public class AppResolver extends Resolver
 			uri = resolveUri(uri);
 		}
 
-		if (uri != null)
+		if (uri != null && "android.resource".equals(uri.getScheme()))
 		{
-			int id = Integer.parseInt(uri.toString().substring("drawable://".length()));
+			String path = uri.getLastPathSegment();
 
-			if (id > 0)
+			if (path != null)
 			{
-				return applicationContext.getResources().openRawResource(id);
+				int id = Integer.parseInt(path);
+
+				if (id > 0)
+				{
+					return applicationContext.getResources().openRawResource(id);
+				}
 			}
 		}
 

@@ -5,7 +5,6 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.cube.storm.ui.controller.adapter.StormListAdapter;
-import com.cube.storm.ui.controller.downloader.StormSchemeHandler;
 import com.cube.storm.ui.data.ContentSize;
 import com.cube.storm.ui.lib.EventHook;
 import com.cube.storm.ui.lib.factory.FileFactory;
@@ -36,9 +35,6 @@ import com.cube.storm.util.lib.processor.Processor;
 import com.cube.storm.util.lib.resolver.AssetsResolver;
 import com.cube.storm.util.lib.resolver.FileResolver;
 import com.cube.storm.util.lib.resolver.Resolver;
-import com.nostra13.universalimageloader.core.ImageLoader;
-import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
-import com.nostra13.universalimageloader.core.download.handlers.SchemeHandler;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -121,11 +117,6 @@ public class UiSettings
 	 * override the processor used to match models with json class names
 	 */
 	@Getter @Setter private Map<Type, ViewProcessor> viewProcessors = new LinkedHashMap<Type, ViewProcessor>(0);
-
-	/**
-	 * Image loader which is used when displaying images in the list
-	 */
-	@Getter @Setter private ImageLoader imageLoader = ImageLoader.getInstance();
 
 	/**
 	 * The density to use when loading images
@@ -230,7 +221,6 @@ public class UiSettings
 			this.context = context.getApplicationContext();
 
 			fileFactory(new FileFactory(){});
-			imageLoaderConfiguration(new ImageLoaderConfiguration.Builder(this.context));
 			linkHandler(new LinkHandler());
 			textProcessor(new TextProcessor());
 
@@ -375,40 +365,6 @@ public class UiSettings
 		}
 
 		/**
-		 * Sets the default image loader configuration.
-		 *
-		 * Note: The ImageDownloader set in the builder is overriden by this method to allow the use
-		 * of {@link #getUriResolvers()} to resolve the uris for loading images. Use {@link #registerUriResolver(String, com.cube.storm.util.lib.resolver.Resolver)}
-		 * to register any additional custom uris you wish to override.
-		 *
-		 * @param configuration The new configuration for the image loader
-		 *
-		 * @return The {@link com.cube.storm.UiSettings.Builder} instance for chaining
-		 */
-		public Builder imageLoaderConfiguration(ImageLoaderConfiguration.Builder configuration)
-		{
-			// Retain existing handlers if any exist
-			Map<String, SchemeHandler> handlers = null;
-			if (construct.imageLoader.isInited())
-			{
-				handlers = construct.imageLoader.getRegisteredSchemeHandlers();
-				construct.imageLoader.destroy();
-			}
-
-			construct.imageLoader.init(configuration.build());
-
-			if (handlers != null && handlers.size() > 0)
-			{
-				for (String key : handlers.keySet())
-				{
-					construct.imageLoader.registerSchemeHandler(key, handlers.get(key));
-				}
-			}
-
-			return this;
-		}
-
-		/**
 		 * Sets the default {@link com.cube.storm.ui.data.ContentSize} for the module
 		 *
 		 * @param contentSize The new {@link com.cube.storm.ui.data.ContentSize}
@@ -528,10 +484,6 @@ public class UiSettings
 		public Builder registerUriResolver(String protocol, Resolver resolver)
 		{
 			construct.uriResolvers.put(protocol, resolver);
-			if (!ImageLoader.getInstance().getRegisteredSchemeHandlers().containsKey(protocol))
-			{
-				ImageLoader.getInstance().registerSchemeHandler(protocol, new StormSchemeHandler());
-			}
 			return this;
 		}
 
@@ -545,13 +497,6 @@ public class UiSettings
 		public Builder registerUriResolver(Map<String, Resolver> resolvers)
 		{
 			construct.uriResolvers.putAll(resolvers);
-			for (String protocol : resolvers.keySet())
-			{
-				if (!ImageLoader.getInstance().getRegisteredSchemeHandlers().containsKey(protocol))
-				{
-					ImageLoader.getInstance().registerSchemeHandler(protocol, new StormSchemeHandler());
-				}
-			}
 			return this;
 		}
 

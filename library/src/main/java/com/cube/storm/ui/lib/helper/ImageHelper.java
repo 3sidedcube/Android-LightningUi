@@ -1,19 +1,25 @@
 package com.cube.storm.ui.lib.helper;
 
-import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.ImageView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.cube.storm.UiSettings;
 import com.cube.storm.ui.data.ContentSize;
 import com.cube.storm.ui.model.property.ImageProperty;
-import com.nostra13.universalimageloader.core.assist.FailReason;
-import com.nostra13.universalimageloader.core.imageaware.ImageViewAware;
-import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
-import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
+import com.cube.storm.util.lib.resolver.Resolver;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -28,37 +34,107 @@ public class ImageHelper
 {
 	public static void displayImage(@NonNull final ImageView image, @Nullable List<ImageProperty> images)
 	{
-		displayImage(image, images, new SimpleImageLoadingListener()
-		{
-			@Override public void onLoadingStarted(String imageUri, View view)
-			{
-				super.onLoadingStarted(imageUri, view);
-			}
-
-			@Override public void onLoadingComplete(String imageUri, View view, Bitmap loadedImage)
-			{
-				if (loadedImage != null)
-				{
-					image.setVisibility(View.VISIBLE);
-				}
-			}
-
-			@Override public void onLoadingFailed(String imageUri, View view, FailReason failReason)
-			{
-
-			}
-		});
+		displayImage(image, images, null);
 	}
 
-	public static void displayImage(@NonNull ImageView image, @Nullable List<ImageProperty> images, ImageLoadingListener listener)
+	public static void displayImage(@NonNull final ImageView image, @Nullable final List<ImageProperty> images, @Nullable final RequestListener<Drawable> listener)
 	{
-		if (images != null)
+		if (images != null && !images.isEmpty())
 		{
-			ImageViewAware aware = new ImageViewAware(image, true);
+			if (image.getVisibility() == View.GONE)
+			{
+				image.setVisibility(View.INVISIBLE);
+			}
 
-			String src = ImageHelper.getImageSrc(images, aware.getWidth(), aware.getHeight());
-			UiSettings.getInstance().getImageLoader().displayImage(src, image, listener);
+			// If image size isnt calculated yet, wait till it has
+			if (image.getWidth() == 0 && image.getHeight() == 0 && image.getVisibility() != View.GONE && UiSettings.getInstance().getContentSize() == ContentSize.AUTO)
+			{
+				image.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener()
+				{
+					@Override public boolean onPreDraw()
+					{
+						image.getViewTreeObserver().removeOnPreDrawListener(this);
+
+						displayImageInternal(image, images, listener);
+						return true;
+					}
+				});
+
+				return;
+			}
+
+			displayImageInternal(image, images, listener);
 		}
+		else
+		{
+			Glide.with(image.getContext()).clear(image);
+			image.setVisibility(View.GONE);
+		}
+	}
+
+	private static void displayImageInternal(@NonNull final ImageView image, @Nullable List<ImageProperty> images, @Nullable final RequestListener<Drawable> listener)
+	{
+		String src = ImageHelper.getImageSrc(images, image.getWidth(), image.getHeight());
+		if (!TextUtils.isEmpty(src))
+		{
+			String resolvedSrc = resolveUri(src);
+			Glide.with(image.getContext())
+			     .load(resolvedSrc)
+			     .listener(new RequestListener<Drawable>()
+			     {
+				     @Override public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource)
+				     {
+					     if (listener != null)
+					     {
+						     listener.onLoadFailed(e, model, target, isFirstResource);
+					     }
+					     return false;
+				     }
+
+				     @Override public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource)
+				     {
+					     image.setVisibility(View.VISIBLE);
+					     if (listener != null)
+					     {
+						     listener.onResourceReady(resource, model, target, dataSource, isFirstResource);
+					     }
+					     return false;
+				     }
+			     })
+			     .into(image);
+		}
+	}
+
+	public static String resolveUri(String uri)
+	{
+		if (TextUtils.isEmpty(uri)) return uri;
+
+		Uri parsedUri = Uri.parse(uri);
+		String scheme = parsedUri.getScheme();
+
+		if (!TextUtils.isEmpty(scheme))
+		{
+			if (scheme.equalsIgnoreCase("assets"))
+			{
+				return resolveUri("file:///android_asset/" + uri.substring("assets://".length()));
+			}
+
+			Resolver resolver = UiSettings.getInstance().getUriResolvers().get(scheme.toLowerCase());
+			if (resolver != null)
+			{
+				Uri resolvedUri = resolver.resolveUri(uri);
+				if (resolvedUri != null)
+				{
+					String resolvedUriString = resolvedUri.toString();
+					if (!resolvedUriString.equals(uri))
+					{
+						return resolveUri(resolvedUriString);
+					}
+				}
+			}
+		}
+
+		return uri;
 	}
 
 	@Nullable
@@ -72,7 +148,7 @@ public class ImageHelper
 	{
 		ImageProperty imageProperty = getImageProperty(images, width, height);
 
-		if (imageProperty != null)
+		if (imageProperty != null && imageProperty.getSrc() != null)
 		{
 			return imageProperty.getSrc().getDestination();
 		}
@@ -94,46 +170,50 @@ public class ImageHelper
 			return null;
 		}
 
-		Collections.sort(images, new ImagePropertyComparator());
+		List<? extends ImageProperty> sortedImages = new ArrayList<>(images);
+		Collections.sort(sortedImages, new ImagePropertyComparator());
 
 		if ((width == 0 && height == 0) || UiSettings.getInstance().getContentSize() != ContentSize.AUTO)
 		{
 			if (UiSettings.getInstance().getContentSize() == ContentSize.SMALL)
 			{
-				return images.get(0);
+				return sortedImages.get(0);
 			}
 			else if (UiSettings.getInstance().getContentSize() == ContentSize.LARGE)
 			{
-				return images.get(Math.max(images.size() - 2, 0));
+				return sortedImages.get(Math.max(sortedImages.size() - 2, 0));
 			}
 			else if (UiSettings.getInstance().getContentSize() == ContentSize.XLARGE)
 			{
-				return images.get(images.size() - 1);
+				return sortedImages.get(sortedImages.size() - 1);
 			}
 
-			return images.get((int)Math.min(Math.ceil((double)images.size() / 2d), images.size() - 1));
+			return sortedImages.get((int)Math.min(Math.ceil((double)sortedImages.size() / 2d), sortedImages.size() - 1));
 		}
 		else
 		{
-			int closest = -1;
-			for (int index = 0, count = images.size(); index < count; index++)
+			int closestIdx = -1;
+			for (int index = 0, count = sortedImages.size(); index < count; index++)
 			{
-				int imageWidth = images.get(index).getDimensions().getWidth();
-				int imageHeight = images.get(index).getDimensions().getHeight();
+				ImageProperty.Dimensions dims = sortedImages.get(index).getDimensions();
+				if (dims == null) continue;
+
+				int imageWidth = dims.getWidth();
+				int imageHeight = dims.getHeight();
 
 				if ((width == 0 || width >= imageWidth) && (height == 0 || height >= imageHeight))
 				{
-					closest = index;
+					closestIdx = index;
 				}
 			}
 
-			if (closest == -1)
+			if (closestIdx == -1)
 			{
 				// return image based on content size instead if an image couldnt be matched
-				return getImageProperty(images, 0, 0);
+				return getImageProperty(sortedImages, 0, 0);
 			}
 
-			return images.get(closest);
+			return sortedImages.get(closestIdx);
 		}
 	}
 
@@ -141,8 +221,20 @@ public class ImageHelper
 	{
 		@Override public int compare(ImageProperty lhs, ImageProperty rhs)
 		{
-			long totalArea = lhs.getDimensions().getHeight() * lhs.getDimensions().getWidth();
-			return Long.valueOf(totalArea).compareTo((long)(rhs.getDimensions().getHeight() * rhs.getDimensions().getWidth()));
+			long lhsArea = 0;
+			long rhsArea = 0;
+
+			if (lhs.getDimensions() != null)
+			{
+				lhsArea = (long)lhs.getDimensions().getHeight() * lhs.getDimensions().getWidth();
+			}
+
+			if (rhs.getDimensions() != null)
+			{
+				rhsArea = (long)rhs.getDimensions().getHeight() * rhs.getDimensions().getWidth();
+			}
+
+			return Long.compare(lhsArea, rhsArea);
 		}
 	}
 }

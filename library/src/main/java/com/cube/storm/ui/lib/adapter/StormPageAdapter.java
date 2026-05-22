@@ -8,6 +8,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentPagerAdapter;
 import android.text.TextUtils;
 
+import com.bumptech.glide.Glide;
 import com.cube.storm.UiSettings;
 import com.cube.storm.ui.data.FragmentIntent;
 import com.cube.storm.ui.data.FragmentPackage;
@@ -15,6 +16,7 @@ import com.cube.storm.ui.lib.helper.ImageHelper;
 import com.cube.storm.ui.model.descriptor.TabbedPageDescriptor;
 import com.cube.storm.ui.model.property.ImageProperty;
 import com.cube.storm.ui.view.PagerSlidingTabStrip.IconTabProvider;
+import com.cube.storm.util.lib.debug.Debug;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -105,7 +107,15 @@ public class StormPageAdapter extends FragmentPagerAdapter implements IconTabPro
 				ArrayList<ImageProperty> imageProperty = ((TabbedPageDescriptor)fragmentPackage.getPageDescriptor()).getTabBarItem().getImage();
 				String imageSrc = ImageHelper.getImageSrc(imageProperty);
 
-				image = UiSettings.getInstance().getImageLoader().loadImageSync(imageSrc);
+				try
+				{
+					String resolvedSrc = ImageHelper.resolveUri(imageSrc);
+					image = Glide.with(context).asBitmap().load(resolvedSrc).submit().get();
+				}
+				catch (Exception e)
+				{
+					Debug.out(e);
+				}
 
 				return image;
 			}
