@@ -125,6 +125,7 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 
 				     @Override public void onLoadCleared(@Nullable Drawable placeholder)
 				     {
+						 // Empty
 				     }
 			     });
 		}
