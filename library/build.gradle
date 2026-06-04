@@ -58,4 +58,4 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok:1.18.40'
 }
 
-apply from: '../gradle/artifactory.gradle'
+apply from: '../gradle/publishing.gradle'
