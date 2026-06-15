@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!--
+		Bridge theme keeps the existing AppCompat DarkActionBar look while enabling the
+		Material components (BottomNavigationView) used by the Storm library.
+	-->
+	<style name="Theme.StormExample" parent="Theme.MaterialComponents.Light.DarkActionBar.Bridge">
+		<item name="bottomNavigationStyle">@style/Widget.StormExample.BottomNavigationView</item>
+	</style>
+
+	<!--
+		Example app-level override of the bottom navigation colour. The library leaves the
+		bottom navigation untinted so each app can theme it; here we drive the labels gray.
+		Note: the library calls setItemIconTintList(null) so the icons render in their
+		original colours regardless of itemIconTint.
+	-->
+	<style name="Widget.StormExample.BottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
+		<item name="itemIconTint">@color/example_bottom_nav_item</item>
+		<item name="itemTextColor">@color/example_bottom_nav_item</item>
+	</style>
+</resources>

@@ -13,9 +13,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.aurelhubert.ahbottomnavigation.AHBottomNavigation;
-import com.aurelhubert.ahbottomnavigation.AHBottomNavigationItem;
-import com.aurelhubert.ahbottomnavigation.AHBottomNavigationViewPager;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
@@ -25,6 +22,8 @@ import com.cube.storm.ui.lib.helper.ImageHelper;
 import com.cube.storm.ui.model.descriptor.PageDescriptor;
 import com.cube.storm.ui.model.descriptor.TabbedPageDescriptor;
 import com.cube.storm.ui.model.page.TabbedPageCollection;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.navigation.NavigationBarView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,20 +32,18 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.res.ResourcesCompat;
 import android.graphics.drawable.Drawable;
 import lombok.Getter;
 
 /**
  * Renders a Storm TabbedPageCollection as a bottom tabs view.
  */
-public class StormBottomTabsFragment extends StormTabbedFragment implements AHBottomNavigation.OnTabSelectedListener, AHBottomNavigation.OnLayoutChangeListener
+public class StormBottomTabsFragment extends StormTabbedFragment implements NavigationBarView.OnItemSelectedListener, View.OnLayoutChangeListener
 {
 	private static final String EXTRA_SELECTED_TAB = "selectedTab";
 	public static final int MAX_BOTTOM_TABS = 5;
 
-	private AHBottomNavigationViewPager viewPager;
-	public AHBottomNavigation bottomNavigation;
+	public BottomNavigationView bottomNavigation;
 	@Getter private int selectedTab = 0;
 	@Getter private List<String> tabTitles = new ArrayList<>();
 
@@ -58,7 +55,6 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 		{
 			return null;
 		}
-		viewPager = view.findViewById(R.id.view_pager);
 		bottomNavigation = view.findViewById(R.id.bottom_tabs);
 
 		if (savedInstanceState != null && savedInstanceState.containsKey(EXTRA_SELECTED_TAB))
@@ -83,31 +79,28 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 			PageDescriptor pageDescriptor = pageAdapter.getPages().get(bottomTabIdx).getPageDescriptor();
 			if (pageDescriptor instanceof TabbedPageDescriptor)
 			{
-				addTabBarItemToBottomTabs((TabbedPageDescriptor)pageDescriptor);
+				addTabBarItemToBottomTabs(bottomTabIdx, (TabbedPageDescriptor)pageDescriptor);
 			}
 		}
 
 		viewPager.setCurrentItem(selectedTab, true);
-		bottomNavigation.setTitleState(AHBottomNavigation.TitleState.ALWAYS_SHOW);
-		bottomNavigation.setOnTabSelectedListener(this);
+		bottomNavigation.setLabelVisibilityMode(NavigationBarView.LABEL_VISIBILITY_LABELED);
+		// Render icons with their original colours; consuming apps drive selection/text
+		// colouring through their own theme.
+		bottomNavigation.setItemIconTintList(null);
+		bottomNavigation.setOnItemSelectedListener(this);
 		bottomNavigation.addOnLayoutChangeListener(this);
-		setAccentColorFromBottomNavigation();
 	}
 
-	protected void setAccentColorFromBottomNavigation()
-	{
-		bottomNavigation.setAccentColor(ResourcesCompat.getColor(getResources(), R.color.main_red, null));
-	}
-
-	private void addTabBarItemToBottomTabs(TabbedPageDescriptor descriptor)
+	private void addTabBarItemToBottomTabs(int position, TabbedPageDescriptor descriptor)
 	{
 		final Resources resources = getResources();
 		final int iconWidthHeight = (int)TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 24f, resources.getDisplayMetrics());
 		final String iconSrc = ImageHelper.getImageSrc(descriptor.getTabBarItem().getImage(), iconWidthHeight, iconWidthHeight);
 		final String itemName = UiSettings.getInstance().getTextProcessor().process(descriptor.getTabBarItem().getTitle());
 		tabTitles.add(itemName);
-		final AHBottomNavigationItem navItem = new AHBottomNavigationItem(itemName, R.drawable.ic_collapse);
-		bottomNavigation.addItem(navItem);
+		final MenuItem navItem = bottomNavigation.getMenu().add(Menu.NONE, position, position, itemName);
+		navItem.setIcon(R.drawable.ic_collapse);
 
 		if (iconSrc != null)
 		{
@@ -119,8 +112,7 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 			     {
 				     @Override public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition)
 				     {
-					     navItem.setDrawable(new BitmapDrawable(resources, resource));
-					     bottomNavigation.refresh();
+					     navItem.setIcon(new BitmapDrawable(resources, resource));
 				     }
 
 				     @Override public void onLoadCleared(@Nullable Drawable placeholder)
@@ -173,15 +165,16 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 	/**
 	 * Calls the content description update and changes the section title
 	 *
-	 * @param position Position of the tab
-	 * @param wasSelected Selected tab
-	 * @return
+	 * @param item The selected menu item
+	 * @return true if the selection was handled
 	 */
 	@Override
-	public boolean onTabSelected(int position, boolean wasSelected)
+	public boolean onNavigationItemSelected(@NonNull MenuItem item)
 	{
+		int position = item.getItemId();
 		viewPager.setCurrentItem(position);
 		selectedTab = position;
+		setTabItemContentDescriptions();
 
 		if (getActivity() != null && ((AppCompatActivity)getActivity()).getSupportActionBar() != null)
 		{    //Hide the back arrow in the main activity
@@ -189,7 +182,7 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 			if (actionBar != null)
 			{
 				actionBar.setDisplayHomeAsUpEnabled(false);
-				actionBar.setTitle(bottomNavigation.getItem(position).getTitle(getContext()));
+				actionBar.setTitle(item.getTitle());
 			}
 		}
 		return true;
@@ -207,10 +200,11 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 	 */
 	private void setTabItemContentDescriptions()
 	{
-		int tabCount = bottomNavigation.getItemsCount();
+		int tabCount = bottomNavigation.getMenu().size();
 		for (int bottomTabIdx = 0; bottomTabIdx < tabCount; bottomTabIdx++)
 		{
-			View tab = bottomNavigation.getViewAtPosition(bottomTabIdx);
+			MenuItem menuItem = bottomNavigation.getMenu().getItem(bottomTabIdx);
+			View tab = bottomNavigation.findViewById(menuItem.getItemId());
 			if (tab != null)
 			{
 				String formatString = selectedTab == bottomTabIdx ? getString(R.string.bottom_navigation_tab_selected) : getString(R.string.bottom_navigation_tab);
@@ -224,7 +218,7 @@ public class StormBottomTabsFragment extends StormTabbedFragment implements AHBo
 	@Override
 	public void switchToTab(int index)
 	{
-		bottomNavigation.setCurrentItem(index);
+		bottomNavigation.setSelectedItemId(index);
 	}
 
 	@Override public void onSaveInstanceState(Bundle outState)
