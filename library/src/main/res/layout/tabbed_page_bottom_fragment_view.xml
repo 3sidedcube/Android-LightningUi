@@ -6,15 +6,16 @@
 	android:layout_width="match_parent"
 	android:layout_height="match_parent"
 >
-	<com.aurelhubert.ahbottomnavigation.AHBottomNavigation
+	<com.google.android.material.bottomnavigation.BottomNavigationView
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
 		android:id="@+id/bottom_tabs"
 		android:layout_alignParentBottom="true"
 		android:elevation="4dp"
+		app:labelVisibilityMode="labeled"
 	/>
 
-	<com.aurelhubert.ahbottomnavigation.AHBottomNavigationViewPager
+	<com.cube.storm.ui.view.NonSwipeableViewPager
 		android:layout_width="match_parent"
 		android:layout_height="match_parent"
 		android:id="@+id/view_pager"
