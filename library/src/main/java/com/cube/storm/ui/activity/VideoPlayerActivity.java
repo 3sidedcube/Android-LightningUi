@@ -1,10 +1,7 @@
 package com.cube.storm.ui.activity;
 
-import android.annotation.SuppressLint;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
-import android.util.SparseArray;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityManager;
@@ -14,9 +11,16 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.cube.storm.UiSettings;
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.customui.DefaultPlayerUiController;
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants;
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer;
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener;
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.options.IFramePlayerOptions;
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView;
 import com.cube.storm.ui.R;
 import com.cube.storm.ui.lib.EdgeToEdgeUtils;
 import com.cube.storm.ui.lib.handler.LinkHandler;
@@ -41,9 +45,6 @@ import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
 import com.google.android.exoplayer2.video.VideoListener;
 
-import java.util.Arrays;
-import java.util.List;
-
 import static com.google.android.exoplayer2.Player.REPEAT_MODE_ONE;
 
 /**
@@ -56,15 +57,6 @@ public class VideoPlayerActivity extends AppCompatActivity implements PlaybackPr
 {
 	public static final String EXTRA_VIDEO = "extra_video";
 
-	/**
-	 * Priority list of Youtube itag formats to attempt to retrieve
-	 * <p>
-	 * See http://en.wikipedia.org/wiki/YouTube#Quality_and_formats
-	 * <p>
-	 * TODO: In future can add DASH media sources
-	 */
-	private static final List<Integer> YOUTUBE_ITAG_PREFERENCE = Arrays.asList(22, 18, 43, 5, 36, 17);
-
 	// Saved instance state keys.
 	private static final String KEY_WINDOW = "window";
 	private static final String KEY_POSITION = "position";
@@ -73,7 +65,14 @@ public class VideoPlayerActivity extends AppCompatActivity implements PlaybackPr
 	private static final String KEY_TRACK_SELECTOR_PARAMETERS = "track_selector_parameters";
 
 	private PlayerView playerView;
+	private YouTubePlayerView youTubePlayerView;
 	private ProgressBar progressBar;
+
+	/**
+	 * Set once the video has been handed to the YouTube IFrame player so the ExoPlayer
+	 * initialisation in {@link #initializePlayer()} is skipped on subsequent lifecycle callbacks.
+	 */
+	private boolean youTubePlayerActive;
 
 	private DataSource.Factory dataSourceFactory;
 	private SimpleExoPlayer player;
@@ -102,8 +101,13 @@ public class VideoPlayerActivity extends AppCompatActivity implements PlaybackPr
 		closedCaptionsButton.setOnClickListener(this);
 		closeVideoButton.setOnClickListener(this);
 		playerView = findViewById(R.id.player_view);
+		youTubePlayerView = findViewById(R.id.youtube_player_view);
 		progressBar = findViewById(R.id.progress);
 		playerView.requestFocus();
+
+		// The YouTube player observes the activity lifecycle so it pauses/releases the
+		// underlying WebView player automatically.
+		getLifecycle().addObserver(youTubePlayerView);
 
 		// ARCFA-239 Don't hide video controls when screen reader is on
 		AccessibilityManager am = (AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
@@ -229,17 +233,18 @@ public class VideoPlayerActivity extends AppCompatActivity implements PlaybackPr
 
 	private void initializePlayer()
 	{
+		// YouTube playback is delegated to the YouTubePlayerView, which manages its own
+		// lifecycle via the observer registered in onCreate, so there is nothing more to do.
+		if (youTubePlayerActive)
+		{
+			return;
+		}
+
 		if (player == null)
 		{
-			player = ExoPlayerFactory.newSimpleInstance(this, trackSelector);
-			player.setPlayWhenReady(startAutoPlay);
-			player.setRepeatMode(REPEAT_MODE_ONE);
-			playerView.setPlayer(player);
-			playerView.setUseController(true);
-			playerView.setPlaybackPreparer(this);
-
 			boolean isResolved = false;
 			boolean isMediaSourceReady = false;
+			boolean isYoutube = false;
 
 			// Recursively attempt to resolve a uri
 			// This recursion is to support Storm uri resolvers - usually we will only iterate once
@@ -266,17 +271,7 @@ public class VideoPlayerActivity extends AppCompatActivity implements PlaybackPr
 						isResolved = true;
 						if (LinkHandler.isYoutubeVideo(uri))
 						{
-							isMediaSourceReady = false;
-							try
-							{
-								Class.forName("at.huber.youtubeExtractor.YouTubeExtractor");
-								extractRawYoutubeUri();
-							}
-							catch (ClassNotFoundException ex)
-							{
-								Log.w("3SC", "Cannot play " + uri + ". Ensure the Storm app either has an API key or a dependency on the youtube extractor");
-								Toast.makeText(this, "Cannot play YouTube video", Toast.LENGTH_LONG).show();
-							}
+							isYoutube = true;
 						}
 						else
 						{
@@ -309,6 +304,20 @@ public class VideoPlayerActivity extends AppCompatActivity implements PlaybackPr
 				}
 			}
 
+			// YouTube videos are played through the official IFrame player rather than ExoPlayer
+			if (isYoutube)
+			{
+				playYoutubeVideo(uri);
+				return;
+			}
+
+			player = ExoPlayerFactory.newSimpleInstance(this, trackSelector);
+			player.setPlayWhenReady(startAutoPlay);
+			player.setRepeatMode(REPEAT_MODE_ONE);
+			playerView.setPlayer(player);
+			playerView.setUseController(true);
+			playerView.setPlaybackPreparer(this);
+
 			// When the video starts playing get whether or not it has a caption index
 			player.addVideoListener(new VideoListener()
 			{
@@ -326,32 +335,109 @@ public class VideoPlayerActivity extends AppCompatActivity implements PlaybackPr
 		}
 	}
 
-	@SuppressLint("StaticFieldLeak")
-	private void extractRawYoutubeUri()
+	/**
+	 * Plays a YouTube video using the official IFrame player API (wrapped by
+	 * {@link YouTubePlayerView}). This replaces the previous approach of scraping the raw
+	 * stream url, which relied on an unmaintained library with a hardcoded user agent.
+	 *
+	 * @param uri The YouTube watch uri to play
+	 */
+	private void playYoutubeVideo(Uri uri)
 	{
-		new at.huber.youtubeExtractor.YouTubeExtractor(this)
+		final String videoId = extractYoutubeVideoId(uri);
+		if (videoId == null)
+		{
+			Toast.makeText(this, "Cannot play YouTube video", Toast.LENGTH_LONG).show();
+			finish();
+			return;
+		}
+
+		youTubePlayerActive = true;
+
+		// Swap the ExoPlayer surface (and its controls) for the YouTube IFrame player
+		playerView.setVisibility(View.GONE);
+		closedCaptionsButton.setVisibility(View.GONE);
+		youTubePlayerView.setVisibility(View.VISIBLE);
+
+		final boolean autoPlay = startAutoPlay;
+		final float startSeconds = startPosition > 0 ? startPosition / 1000f : 0f;
+
+		// Disable the native IFrame chrome so we can present a stripped-back set of controls
+		IFramePlayerOptions options = new IFramePlayerOptions.Builder(this)
+			.controls(0) // web UI is not visible
+			.ccLoadPolicy(0) //show captions
+			.ivLoadPolicy(3) //won't show annotations.
+			.rel(0) //related videos
+			.build();
+
+		youTubePlayerView.initialize(new AbstractYouTubePlayerListener()
 		{
 			@Override
-			public void onExtractionComplete(
-				SparseArray<at.huber.youtubeExtractor.YtFile> ytFiles,
-				at.huber.youtubeExtractor.VideoMeta vMeta
-			)
+			public void onReady(@NonNull YouTubePlayer youTubePlayer)
 			{
-				if (ytFiles != null)
+				progressBar.setVisibility(View.GONE);
+
+				// Replace the default player UI with a minimal one - no video title,
+				// no YouTube logo, and no share/overflow menu.
+				DefaultPlayerUiController uiController = new DefaultPlayerUiController(youTubePlayerView, youTubePlayer);
+				uiController.showVideoTitle(false);
+				uiController.showYouTubeButton(false);
+				uiController.showMenuButton(false);
+				uiController.showFullscreenButton(false);
+				youTubePlayerView.setCustomPlayerUi(uiController.getRootView());
+
+				if (autoPlay)
 				{
-					for (Integer itag : YOUTUBE_ITAG_PREFERENCE)
-					{
-						at.huber.youtubeExtractor.YtFile file = ytFiles.get(itag);
-						if (file != null)
-						{
-							VideoPlayerActivity.this.uri = Uri.parse(ytFiles.get(itag).getUrl());
-							break;
-						}
-					}
-					initialiseMediaSource();
+					youTubePlayer.loadVideo(videoId, startSeconds);
+				}
+				else
+				{
+					youTubePlayer.cueVideo(videoId, startSeconds);
 				}
 			}
-		}.extract(uri.toString(), true, true);
+
+			@Override
+			public void onStateChange(@NonNull YouTubePlayer youTubePlayer, @NonNull PlayerConstants.PlayerState state)
+			{
+				// Loop the video (mirrors the ExoPlayer REPEAT_MODE_ONE behaviour). This also
+				// prevents YouTube's end-screen - with its share button and related videos -
+				// from ever being shown, which the IFrame API cannot otherwise suppress.
+				if (state == PlayerConstants.PlayerState.ENDED)
+				{
+					youTubePlayer.seekTo(0f);
+					youTubePlayer.play();
+				}
+			}
+		}, options);
+	}
+
+	/**
+	 * Extracts the YouTube video id from a watch uri. Mirrors the matching performed by
+	 * {@link LinkHandler#isYoutubeVideo(Uri)}.
+	 *
+	 * @param uri The YouTube uri
+	 *
+	 * @return The video id, or null if one could not be determined
+	 */
+	@Nullable
+	private static String extractYoutubeVideoId(@Nullable Uri uri)
+	{
+		if (uri == null || uri.getHost() == null)
+		{
+			return null;
+		}
+
+		if (uri.getHost().endsWith("youtu.be"))
+		{
+			return uri.getPathSegments().isEmpty() ? null : uri.getPathSegments().get(0);
+		}
+
+		if (uri.getHost().endsWith("youtube.com"))
+		{
+			return uri.getQueryParameter("v");
+		}
+
+		return null;
 	}
 
 	private void initialiseMediaSource()
