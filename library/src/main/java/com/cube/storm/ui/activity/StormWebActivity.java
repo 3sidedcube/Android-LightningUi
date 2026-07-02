@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
+import androidx.browser.customtabs.CustomTabColorSchemeParams;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.core.content.FileProvider;
 import androidx.appcompat.app.AppCompatActivity;
@@ -56,13 +57,17 @@ public class StormWebActivity extends AppCompatActivity
 	public void launchChromeCustomTabs(@NonNull String url)
 	{
 		CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder();
-		builder.addDefaultShareMenuItem();
+		builder.setShareState(CustomTabsIntent.SHARE_STATE_ON);
 
 		int toolbarColor = getToolbarColor();
 
 		if (toolbarColor != 0)
 		{
-			builder.setToolbarColor(toolbarColor);
+			builder.setDefaultColorSchemeParams(
+				new CustomTabColorSchemeParams.Builder()
+					.setToolbarColor(toolbarColor)
+					.build()
+			);
 		}
 
 		builder.setStartAnimations(this, R.anim.slide_in_right, R.anim.slide_out_left);
@@ -70,7 +75,7 @@ public class StormWebActivity extends AppCompatActivity
 
 		Uri uri = Uri.parse(url);
 
-		if (uri.getScheme().startsWith("file"))
+		if (uri.getScheme() != null && uri.getScheme().startsWith("file") && uri.getPath() != null)
 		{
 			uri = FileProvider.getUriForFile(this, getApplicationContext().getPackageName() + ".provider", new File(uri.getPath()));
 		}
@@ -84,11 +89,12 @@ public class StormWebActivity extends AppCompatActivity
 	{
 		TypedValue typedValue = new TypedValue();
 
-		TypedArray a = obtainStyledAttributes(typedValue.data, new int[] {R.attr.colorPrimary});
-		int color = a.getColor(0, 0);
+        int color = 0;
+        try (TypedArray a = obtainStyledAttributes(typedValue.data, new int[]{R.attr.colorPrimary}))
+		{
+            color = a.getColor(0, 0);
+        }
 
-		a.recycle();
-
-		return color;
+        return color;
 	}
 }
