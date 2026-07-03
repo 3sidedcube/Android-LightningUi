@@ -134,11 +134,6 @@ public class UiSettings
 	@Getter @Setter private ViewBuilder viewBuilder;
 
 	/**
-	 * (Optional) API key to use in order to play videos using the standalone Youtube-supported player
-	 */
-	@Getter @Setter private String youtubeApiKey;
-
-	/**
 	 * Processor class used to process strings as part of {@link com.cube.storm.ui.model.property.TextProperty}
 	 */
 	@Getter @Setter private Processor<TextProperty, String> textProcessor;
@@ -204,13 +199,6 @@ public class UiSettings
 		private UiSettings construct;
 
 		private Context context;
-
-		/**
-		 * Flag to indicate whether the caller has explicitly decided whether or not to use the YouTube SDK
-		 *
-		 * If null is passed as the YouTube SDK value then the YouTube extractor lib will need to be included in the calling project (see gradle)
-		 */
-		private boolean isYouTubeAPIKeyInitialised = false;
 
 		/**
 		 * Default constructor
@@ -529,22 +517,6 @@ public class UiSettings
 		}
 
 		/**
-		 * Sets the YouTube API key to use in order to play youtube videos with the supported standalone player
-		 *
-		 * If not set, the internal player will be used using an unsupported non-public API, which is hacky and not guaranteed to work
-		 *
-		 * @param youtubeApiKey
-		 *
-		 * @return The {@link com.cube.storm.UiSettings.Builder} instance for chaining
-		 */
-		public Builder youtubeApiKey(@Nullable String youtubeApiKey)
-		{
-			construct.youtubeApiKey = youtubeApiKey;
-			isYouTubeAPIKeyInitialised = true;
-			return this;
-		}
-		
-		/**
 		 * Sets the app to display chevrons on StandardListItemView if the link matches the correct criteria
 		 *
 		 * If not set, StandardListItemView will not display with chevrons
@@ -565,11 +537,6 @@ public class UiSettings
 		 */
 		public UiSettings build()
 		{
-			if (!isYouTubeAPIKeyInitialised)
-			{
-				throw new IllegalStateException("Please explicitly pass a YouTube API key (or null). If null, please include the YouTube extractor dependency in your project to support YouTube videos.");
-			}
-
 			if (construct.getIntentProviders().size() == 0)
 			{
 				registerIntentProvider(new DefaultIntentProvider());

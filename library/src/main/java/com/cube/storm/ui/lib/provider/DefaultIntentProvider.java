@@ -1,6 +1,5 @@
 package com.cube.storm.ui.lib.provider;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -23,10 +22,6 @@ import com.cube.storm.ui.model.page.GridPage;
 import com.cube.storm.ui.model.page.ListPage;
 import com.cube.storm.ui.model.page.PageCollection;
 import com.cube.storm.ui.model.page.TabbedPageCollection;
-import com.google.android.youtube.player.YouTubeStandalonePlayer;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * This is the factory class which is used by Storm to decide which activity/fragments to instantiate
@@ -37,8 +32,6 @@ import java.util.regex.Pattern;
  */
 public class DefaultIntentProvider extends IntentProvider
 {
-	public static Pattern YOUTUBE_VIDEO_ID_REGEX = Pattern.compile("v=([^&]+)");
-
 	/**
 	 * Loads a fragment intent from a page descriptor by finding the model of the page type defined in {@link com.cube.storm.ui.model.descriptor.PageDescriptor#getType()}
 	 * <p/>
@@ -105,31 +98,8 @@ public class DefaultIntentProvider extends IntentProvider
 		    || LinkHandler.isYoutubeVideo(Uri.parse(pageDescriptor.getSrc()))
 		    || LinkHandler.isVideo(Uri.parse(pageDescriptor.getSrc())))
 		{
-			if (LinkHandler.isYoutubeVideo(Uri.parse(pageDescriptor.getSrc())) && context instanceof Activity)
-			{
-				String youtubeApiKey = UiSettings.getInstance().getYoutubeApiKey();
-				if (youtubeApiKey != null)
-				{
-					Matcher videoIdMatcher = YOUTUBE_VIDEO_ID_REGEX.matcher(pageDescriptor.getSrc());
-					if (videoIdMatcher.find())
-					{
-						String videoId = videoIdMatcher.group(1);
-						intent = YouTubeStandalonePlayer.createVideoIntent((Activity)context, youtubeApiKey, videoId, 0, true, false);
-
-					}
-
-					if (intent == null || context.getPackageManager().resolveActivity(intent, 0) == null)
-					{
-						intent = new Intent(Intent.ACTION_VIEW);
-						intent.setData(Uri.parse(pageDescriptor.getSrc()));
-					}
-				}
-			}
-
-			if (intent == null)
-			{
-				intent = new Intent(context, VideoPlayerActivity.class);
-			}
+			// All videos - including YouTube - play through VideoPlayerActivity
+			intent = new Intent(context, VideoPlayerActivity.class);
 		}
 		else if (pageDescriptor instanceof WebPageDescriptor)
 		{

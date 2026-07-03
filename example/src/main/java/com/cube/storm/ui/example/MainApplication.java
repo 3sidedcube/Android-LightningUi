@@ -49,7 +49,6 @@ public class MainApplication extends MultiDexApplication
 			.registerIntentResolver(Uri.parse("assets://pages/3.json"), new DefaultIntentResolver(CustomStormActivity.class, StormStaticFragment.class))
 			.registerIntentProvider(new CustomIntentProvider())
 			.registerIntentProvider(new DefaultIntentProvider())
-			.youtubeApiKey(null) // put an api key here
 			.build();
 
 		// Loading app json
